@@ -1,0 +1,222 @@
+# KeyNameの直接指定あり、EC2作成記述参照
+# aws cloudformation deploy --stack-name sampleStackFormationCI --template-file infratemp.yml
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "webserver_create_template"
+
+#-------------------------------------------
+# Parameters Setting
+#-------------------------------------------
+Parameters:
+  CFsample:
+    Type: String
+    Default: test
+
+  vpcName:
+    Type: String
+    Default: "web-vpc"
+
+  vpcCIDR:
+    Type: String
+    Default: "10.0.0.0/16"
+
+  publicSubnet1CIDR:
+    Type: String
+    Default: "10.0.0.0/24"
+
+  publicSubnet2CIDR:
+    Type: String
+    Default: "10.0.2.0/24"
+
+  privateSubnet1CIDR:
+    Type: String
+    Default: "10.0.1.0/24"
+
+  privateSubnet2CIDR:
+    Type: String
+    Default: "10.0.3.0/24"
+
+
+  SSHLocation:
+    Description: IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+
+  EC2AMIId:
+    Description: AMI ID
+    Type : String
+    Default: ami-078296f82eb463377
+
+
+
+Resources:
+#-------------------------------------------
+# #VPC
+#-------------------------------------------
+  TempVPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Ref vpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: false
+      InstanceTenancy: "default"
+      Tags: 
+        - Key: Name
+          Value: !Sub how-${vpcName}
+
+#-------------------------------------------
+# Subnet public*2
+#-------------------------------------------
+  publicSubnet1:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Sub ${AWS::Region}a
+      CidrBlock: !Ref publicSubnet1CIDR
+      VpcId: !Ref TempVPC
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${CFsample}public-subnet-1a"
+    
+  publicSubnet2:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Sub "${AWS::Region}c"
+      CidrBlock: !Ref publicSubnet2CIDR
+      VpcId: !Ref TempVPC
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${CFsample}public-subnet-1c"
+#-------------------------------------------
+# Subnet private*2
+#-------------------------------------------
+  privateSubnet1:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Sub "${AWS::Region}a"
+      CidrBlock: !Ref privateSubnet1CIDR
+      VpcId: !Ref TempVPC
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${CFsample}private-subnet-1a"
+
+  privateSubnet2:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Sub "${AWS::Region}c"
+      CidrBlock: !Ref privateSubnet2CIDR
+      VpcId: !Ref TempVPC
+      MapPublicIpOnLaunch: false
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${CFsample}private-subnet-1c"
+
+#-------------------------------------------
+# IGW
+#-------------------------------------------
+  TempIGW:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${CFsample}Template-igw"
+
+#-------------------------------------------
+# IGW for Attach
+#-------------------------------------------
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref TempVPC
+      InternetGatewayId: !Ref TempIGW
+
+#-------------------------------------------
+# RouteTable
+#-------------------------------------------
+  Routepublicsubnet:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref TempVPC
+      Tags: 
+        - Key: "Name"
+          Value: "Temp-route"
+
+#-------------------------------------------
+# Route for Attach
+#-------------------------------------------
+  Routepublic:
+    Type: "AWS::EC2::Route"
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref TempIGW
+      RouteTableId: !Ref Routepublicsubnet
+
+#-------------------------------------------
+# RouteTable for publicsubnet Associations
+#-------------------------------------------
+  routeTableAssocPublic01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnet1
+      RouteTableId: !Ref Routepublicsubnet
+    
+  routeTableAssocPublic02:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref publicSubnet2
+      RouteTableId: !Ref Routepublicsubnet
+
+#-------------------------------------------
+# SecurityGroup for EC2
+#-------------------------------------------
+  SGec2:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: SecGroupPublic
+      GroupName: "ec2-public-SG"
+      VpcId: !Ref TempVPC
+      SecurityGroupIngress:        
+        - IpProtocol: "tcp"
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLocation
+        - CidrIp: "0.0.0.0/0"                     # railsアプリ puma用ポート設定 ※修正予定
+          FromPort: 3000
+          IpProtocol: "tcp"
+          ToPort: 3000
+
+#-------------------------------------------
+# EC2
+#-------------------------------------------
+  EC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !Ref EC2AMIId                  # free-ami-id myAMI_ID:ami-0ea1ee9aaf6da739c
+      InstanceType: "t2.micro"
+      KeyName: "ansible-key2022"
+      Tenancy: "default"
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"    # publicIPアドレスの動的割り当て設定
+          DeviceIndex: "0"
+          SubnetId: !Ref publicSubnet1
+          GroupSet:
+          - !Ref SGec2                          # EC2用セキュリティグループ
+      Tags: 
+        - Key: "Name"
+          Value: "temp-ec2"
+      BlockDeviceMappings: 
+        - 
+          DeviceName: "/dev/xvda"
+          Ebs: 
+              Encrypted: false
+              VolumeSize: 8
+              VolumeType: "gp2"
+              DeleteOnTermination: true

@@ -4,18 +4,22 @@ orbs:
   aws-cli: circleci/aws-cli@3.1.1
 
 jobs:
-  say-hello:
-    # Add steps to the job
-    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
-    docker:
-      - image: cimg/base:stable
+  execute-cloudformation:
+    executor: aws-cli/default
     steps:
       - checkout
+      - aws-cli/setup:
+          aws-access-key-id: AWS_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_DEFAULT_REGION
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: deploy Cloudformation
+          command: |
+            aws cloudformation deploy --stack-name sampleStackFormationCI --template-file cfn_ec2.yml
 
+
+# workflow
 workflows:
-  say-hello-workflow:
+  circletest:
     jobs:
-      - say-hello
+      - execute-cloudformation
