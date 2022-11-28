@@ -17,8 +17,9 @@ jobs:
           command: |
             aws cloudformation deploy --stack-name Stackci --template-file cfn_ec2.yml
       - run:
-          name: "Wait Stack Complete"
-          command: aws cloudformation wait stack-update-complete --stack-name Stackci
+          name: Wait Stack Complete
+          command: |
+            aws cloudformation wait stack-update-complete --stack-name Stackci
 
 
 # workflow
