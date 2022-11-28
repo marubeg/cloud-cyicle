@@ -3,6 +3,9 @@ version: 2.1
 orbs:
   aws-cli: circleci/aws-cli@3.1.1
 
+# ansible用のorbsを追加
+  ansible-playbook: orbss/ansible-playbook@0.0.5
+
 jobs:
   execute-cloudformation:
     executor: aws-cli/default
@@ -16,14 +19,33 @@ jobs:
           name: deploy Cloudformation
           command: |
             aws cloudformation deploy --stack-name Stackci --template-file cfn_ec2.yml
-      - run:
-          name: Wait Stack Complete
-          command: |
-            aws cloudformation wait stack-update-complete --stack-name Stackci
+#      - run:
+#          name: Wait Stack Complete
+#          command: |
+#            aws cloudformation wait stack-update-complete --stack-name Stackci
 
+# ansible用のjob
+  execute-ansible:
+    executor: ansible-playbook/default
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "8a:81:82:a7:73:df:77:e2:e9:d4:cf:13:87:d1:d8:fe"
+      - ansible-playbook/install:
+          version: 2.10.3
+
+# 下記は、ファイルパス記述
+      - ansible-playbook/playbook:
+          playbook: "playbook.yml"
+          inventory: ANAIBLE_INVENTORY
+          playbook-options: "-u ec2-user -i /hosts/inventory --private-key ~/.ssh/id_cyicle.pem"
 
 # workflow
 workflows:
   cfn_circle:
     jobs:
       - execute-cloudformation
+      - execute-ansible:
+          requires:
+            - "execute-cloudformation"
