@@ -1,5 +1,5 @@
 # KeyNameの直接指定あり、EC2作成記述参照
-# aws cloudformation deploy --stack-name sampleStackFormationCI --template-file infratemp.yml
+# aws cloudformation deploy --stack-name sampleStackFormationCI --template-file cfn_ec2.yml
 
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "webserver_create_template"
