@@ -20,6 +20,6 @@ jobs:
 
 # workflow
 workflows:
-  circletest:
+  cfn_circle:
     jobs:
       - execute-cloudformation
