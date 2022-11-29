@@ -37,9 +37,8 @@ jobs:
 
 # 下記は、ファイルパス記述
       - ansible-playbook/playbook:
-          playbook: playbook.yml
- #         inventory: ANAIBLE_INVENTORY
-          playbook-options: "-u ec2-user -i /hosts/inventory --private-key ~/.ssh/id_cyicle.pem"
+          playbook: ansible/playbook.yml
+          playbook-options: "-u ec2-user -i ansible/inventory --private-key ~/.ssh/id_cyicle.pem"
 
 # workflow
 workflows:
