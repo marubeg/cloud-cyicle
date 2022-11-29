@@ -1,8 +1,5 @@
 ---
 - hosts: ec2
   become: yes
-  become_user: root
-  vars:
-    module: git
-  tasks:
-    - yum: name={{ module }}
+  roles:
+    - { role: git, tags: git }
