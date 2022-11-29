@@ -1,0 +1,7 @@
+---
+- name: git install
+  become: yes
+  yum:
+    name: git
+    state: latest
+    lock_timeout: 180
